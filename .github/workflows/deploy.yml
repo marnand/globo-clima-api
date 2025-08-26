@@ -98,21 +98,21 @@ jobs:
           export DOCKER_TAG=${{ env.DOCKER_TAG }}
           
           # Fazer login no Docker Hub
-          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+          echo "${{ secrets.DOCKER_PASSWORD }}" | sudo docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
           
           # Parar e remover container existente
-          docker stop globoclima-container || true
-          docker rm globoclima-container || true
+          sudo docker stop globoclima-container || true
+          sudo docker rm globoclima-container || true
           
           # Remover imagem antiga
-          docker rmi ${DOCKER_USERNAME}/${DOCKER_IMAGE}:latest || true
+          sudo docker rmi ${DOCKER_USERNAME}/${DOCKER_IMAGE}:latest || true
           
           # Baixar nova imagem
-          docker pull ${DOCKER_USERNAME}/${DOCKER_IMAGE}:${DOCKER_TAG}
-          docker tag ${DOCKER_USERNAME}/${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_USERNAME}/${DOCKER_IMAGE}:latest
+          sudo docker pull ${DOCKER_USERNAME}/${DOCKER_IMAGE}:${DOCKER_TAG}
+          sudo docker tag ${DOCKER_USERNAME}/${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_USERNAME}/${DOCKER_IMAGE}:latest
           
           # Executar novo container
-          docker run -d \
+          sudo docker run -d \
             --name globoclima-container \
             --restart unless-stopped \
             -p 80:8080 \
@@ -120,6 +120,6 @@ jobs:
             ${DOCKER_USERNAME}/${DOCKER_IMAGE}:latest
           
           # Limpar imagens não utilizadas
-          docker image prune -f
+          sudo docker image prune -f
           
           echo "Deploy com Docker concluído com sucesso!"
