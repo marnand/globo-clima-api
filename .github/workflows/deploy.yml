@@ -8,6 +8,8 @@ on:
 
 env:
   DOTNET_VERSION: '8.0.x'
+  DOCKER_IMAGE: 'globoclima-app'
+  DOCKER_TAG: ${{ github.sha }}
 
 jobs:
   test:
@@ -32,8 +34,8 @@ jobs:
     - name: Test
       run: dotnet test GloboClima/GloboClima.csproj --no-build --verbosity normal
 
-  deploy:
-    name: Deploy to EC2
+  build-and-push:
+    name: Build and Push Docker Image
     runs-on: ubuntu-latest
     needs: test
     if: github.ref == 'refs/heads/main'
@@ -42,23 +44,44 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
       with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
         
-    - name: Build and Publish
-      run: |
-        dotnet publish GloboClima/GloboClima.csproj -c Release -o ./publish
-        tar -czf globoclima-app.tar.gz -C ./publish .
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./GloboClima/Dockerfile
+        push: true
+        tags: |
+          ${{ secrets.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGE }}:latest
+          ${{ secrets.DOCKER_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
         
-    - name: Copy files to EC2
+    - name: Copy deployment script to EC2
       uses: appleboy/scp-action@v0.1.7
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USER }}
         key: ${{ secrets.EC2_SSH_KEY }}
-        source: "globoclima-app.tar.gz,scripts/deploy.sh"
+        source: "scripts/deploy.sh"
         target: "/home/${{ secrets.EC2_USER }}/"
         
     - name: Deploy on EC2
@@ -67,6 +90,36 @@ jobs:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USER }}
         key: ${{ secrets.EC2_SSH_KEY }}
+        envs: DOCKER_USERNAME,DOCKER_IMAGE,DOCKER_TAG
         script: |
-          chmod +x /home/${{ secrets.EC2_USER }}/scripts/deploy.sh
-          /home/${{ secrets.EC2_USER }}/scripts/deploy.sh
+          # Definir variáveis
+          export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
+          export DOCKER_IMAGE=${{ env.DOCKER_IMAGE }}
+          export DOCKER_TAG=${{ env.DOCKER_TAG }}
+          
+          # Fazer login no Docker Hub
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+          
+          # Parar e remover container existente
+          docker stop globoclima-container || true
+          docker rm globoclima-container || true
+          
+          # Remover imagem antiga
+          docker rmi ${DOCKER_USERNAME}/${DOCKER_IMAGE}:latest || true
+          
+          # Baixar nova imagem
+          docker pull ${DOCKER_USERNAME}/${DOCKER_IMAGE}:${DOCKER_TAG}
+          docker tag ${DOCKER_USERNAME}/${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_USERNAME}/${DOCKER_IMAGE}:latest
+          
+          # Executar novo container
+          docker run -d \
+            --name globoclima-container \
+            --restart unless-stopped \
+            -p 80:8080 \
+            -p 443:8081 \
+            ${DOCKER_USERNAME}/${DOCKER_IMAGE}:latest
+          
+          # Limpar imagens não utilizadas
+          docker image prune -f
+          
+          echo "Deploy com Docker concluído com sucesso!"
