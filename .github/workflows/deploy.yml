@@ -113,8 +113,20 @@ jobs:
             ./scripts/generate-ssl.sh
           fi
           
-          # Parar containers existentes
-          sudo docker-compose down || true
+          # LIMPEZA COMPLETA - Parar e remover todos os containers relacionados
+          echo "Parando containers existentes..."
+          sudo docker stop globoclima-container globoclima-nginx globoclima-app || true
+          sudo docker rm globoclima-container globoclima-nginx globoclima-app || true
+          
+          # Parar docker-compose
+          sudo docker-compose down --remove-orphans || true
+          
+          # Verificar e matar processos usando as portas 80 e 443
+          sudo fuser -k 80/tcp || true
+          sudo fuser -k 443/tcp || true
+          
+          # Aguardar um momento para liberação das portas
+          sleep 5
           
           # Baixar nova imagem
           sudo docker pull ${DOCKER_USERNAME}/${DOCKER_IMAGE}:${DOCKER_TAG}
@@ -122,6 +134,10 @@ jobs:
           
           # Iniciar containers (docker-compose lerá o arquivo .env automaticamente)
           sudo docker-compose up -d
+          
+          # Verificar se os containers estão rodando
+          echo "Verificando status dos containers..."
+          sudo docker ps
           
           # Limpar imagens não utilizadas
           sudo docker image prune -f
