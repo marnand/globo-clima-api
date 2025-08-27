@@ -142,8 +142,11 @@ jobs:
           # Limpar imagens não utilizadas
           sudo docker image prune -f
           
-          # Mostrar IP para acesso
-          EC2_IP=$(curl -s ifconfig.me)
-          echo "Deploy com HTTPS (certificado auto-assinado) concluído!"
-          echo "Acesse: https://${EC2_IP} (aceite o aviso de segurança)"
-          echo "Swagger: https://${EC2_IP}/swagger"
+          # Mostrar informações de acesso
+          echo "Deploy com HTTPS concluído!"
+          echo "Domínio configurado: globoclima.dedyn.io"
+          echo "Acesse: https://globoclima.dedyn.io"
+          echo "Swagger: https://globoclima.dedyn.io/swagger"
+          echo ""
+          echo "NOTA: Certifique-se de que o DNS do domínio aponta para este servidor"
+          echo "IP do servidor: $(curl -s ifconfig.me)"
