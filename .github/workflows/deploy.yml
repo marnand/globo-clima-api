@@ -97,6 +97,13 @@ jobs:
           export DOCKER_IMAGE=${{ env.DOCKER_IMAGE }}
           export DOCKER_TAG=${{ env.DOCKER_TAG }}
           
+          # Criar arquivo .env para docker-compose
+          cat > .env << EOF
+          DOCKER_USERNAME=${DOCKER_USERNAME}
+          DOCKER_IMAGE=${DOCKER_IMAGE}
+          DOCKER_TAG=${DOCKER_TAG}
+          EOF
+          
           # Fazer login no Docker Hub
           echo "${{ secrets.DOCKER_PASSWORD }}" | sudo docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
           
@@ -113,11 +120,14 @@ jobs:
           sudo docker pull ${DOCKER_USERNAME}/${DOCKER_IMAGE}:${DOCKER_TAG}
           sudo docker tag ${DOCKER_USERNAME}/${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_USERNAME}/${DOCKER_IMAGE}:latest
           
-          # Iniciar containers
+          # Iniciar containers (docker-compose lerá o arquivo .env automaticamente)
           sudo docker-compose up -d
           
           # Limpar imagens não utilizadas
           sudo docker image prune -f
           
+          # Mostrar IP para acesso
+          EC2_IP=$(curl -s ifconfig.me)
           echo "Deploy com HTTPS (certificado auto-assinado) concluído!"
-          echo "Acesse: https://SEU_IP_EC2 (aceite o aviso de segurança)"
+          echo "Acesse: https://${EC2_IP} (aceite o aviso de segurança)"
+          echo "Swagger: https://${EC2_IP}/swagger"
