@@ -75,13 +75,13 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
         
-    - name: Copy deployment script to EC2
+    - name: Copy SSL and config files to EC2
       uses: appleboy/scp-action@v0.1.7
       with:
         host: ${{ secrets.EC2_HOST }}
         username: ${{ secrets.EC2_USER }}
         key: ${{ secrets.EC2_SSH_KEY }}
-        source: "scripts/deploy.sh"
+        source: "docker-compose.yml,nginx/,scripts/"
         target: "/home/${{ secrets.EC2_USER }}/"
         
     - name: Deploy on EC2
@@ -100,26 +100,24 @@ jobs:
           # Fazer login no Docker Hub
           echo "${{ secrets.DOCKER_PASSWORD }}" | sudo docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
           
-          # Parar e remover container existente
-          sudo docker stop globoclima-container || true
-          sudo docker rm globoclima-container || true
+          # Gerar certificado SSL se não existir
+          if [ ! -f ssl/server.crt ]; then
+            chmod +x scripts/generate-ssl.sh
+            ./scripts/generate-ssl.sh
+          fi
           
-          # Remover imagem antiga
-          sudo docker rmi ${DOCKER_USERNAME}/${DOCKER_IMAGE}:latest || true
+          # Parar containers existentes
+          sudo docker-compose down || true
           
           # Baixar nova imagem
           sudo docker pull ${DOCKER_USERNAME}/${DOCKER_IMAGE}:${DOCKER_TAG}
           sudo docker tag ${DOCKER_USERNAME}/${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_USERNAME}/${DOCKER_IMAGE}:latest
           
-          # Executar novo container
-          sudo docker run -d \
-            --name globoclima-container \
-            --restart unless-stopped \
-            -p 80:8080 \
-            -p 443:8081 \
-            ${DOCKER_USERNAME}/${DOCKER_IMAGE}:latest
+          # Iniciar containers
+          sudo docker-compose up -d
           
           # Limpar imagens não utilizadas
           sudo docker image prune -f
           
-          echo "Deploy com Docker concluído com sucesso!"
+          echo "Deploy com HTTPS (certificado auto-assinado) concluído!"
+          echo "Acesse: https://SEU_IP_EC2 (aceite o aviso de segurança)"
