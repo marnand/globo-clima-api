@@ -79,7 +79,8 @@ jobs:
       env:
         WEATHER_API_KEY: ${{ secrets.WEATHER_API_KEY }}
       run: |
-        # seus comandos de build e deploy aqui
+        echo "Preparando arquivos para deploy..."
+    
     - name: Copy SSL and config files to EC2
       uses: appleboy/scp-action@v0.1.7
       with:
@@ -107,6 +108,7 @@ jobs:
           DOCKER_USERNAME=${DOCKER_USERNAME}
           DOCKER_IMAGE=${DOCKER_IMAGE}
           DOCKER_TAG=${DOCKER_TAG}
+          WEATHER_API_KEY=${{ secrets.WEATHER_API_KEY }}
           EOF
           
           # Fazer login no Docker Hub

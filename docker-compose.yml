@@ -10,6 +10,7 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
+      - WEATHER_API_KEY=${WEATHER_API_KEY}
     networks:
       - globoclima-network
 
@@ -31,8 +32,3 @@ services:
 networks:
   globoclima-network:
     driver: bridge
-
-    environment:
-      - WEATHER_API_KEY=${WEATHER_API_KEY}
-    networks:
-      - globoclima-network
