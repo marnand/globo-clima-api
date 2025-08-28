@@ -80,78 +80,78 @@ jobs:
         WEATHER_API_KEY: ${{ secrets.WEATHER_API_KEY }}
       run: |
         # seus comandos de build e deploy aqui
-      - name: Copy SSL and config files to EC2
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          source: "docker-compose.yml,nginx/,scripts/"
-          target: "/home/${{ secrets.EC2_USER }}/"
-        
-      - name: Deploy on EC2
-        uses: appleboy/ssh-action@v0.1.10
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          envs: DOCKER_USERNAME,DOCKER_IMAGE,DOCKER_TAG
-          script: |
-            # Definir variáveis
-            export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
-            export DOCKER_IMAGE=${{ env.DOCKER_IMAGE }}
-            export DOCKER_TAG=${{ env.DOCKER_TAG }}
-            
-            # Criar arquivo .env para docker-compose
-            cat > .env << EOF
-            DOCKER_USERNAME=${DOCKER_USERNAME}
-            DOCKER_IMAGE=${DOCKER_IMAGE}
-            DOCKER_TAG=${DOCKER_TAG}
-            EOF
-            
-            # Fazer login no Docker Hub
-            echo "${{ secrets.DOCKER_PASSWORD }}" | sudo docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-            
-            # Gerar certificado SSL se não existir
-            if [ ! -f ssl/server.crt ]; then
-              chmod +x scripts/generate-ssl.sh
-              ./scripts/generate-ssl.sh
-            fi
-            
-            # LIMPEZA COMPLETA - Parar e remover todos os containers relacionados
-            echo "Parando containers existentes..."
-            sudo docker stop globoclima-container globoclima-nginx globoclima-app || true
-            sudo docker rm globoclima-container globoclima-nginx globoclima-app || true
-            
-            # Parar docker-compose
-            sudo docker-compose down --remove-orphans || true
-            
-            # Verificar e matar processos usando as portas 80 e 443
-            sudo fuser -k 80/tcp || true
-            sudo fuser -k 443/tcp || true
-            
-            # Aguardar um momento para liberação das portas
-            sleep 5
-            
-            # Baixar nova imagem
-            sudo docker pull ${DOCKER_USERNAME}/${DOCKER_IMAGE}:${DOCKER_TAG}
-            sudo docker tag ${DOCKER_USERNAME}/${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_USERNAME}/${DOCKER_IMAGE}:latest
-            
-            # Iniciar containers (docker-compose lerá o arquivo .env automaticamente)
-            sudo docker-compose up -d
-            
-            # Verificar se os containers estão rodando
-            echo "Verificando status dos containers..."
-            sudo docker ps
-            
-            # Limpar imagens não utilizadas
-            sudo docker image prune -f
-            
-            # Mostrar informações de acesso
-            echo "Deploy com HTTPS concluído!"
-            echo "Domínio configurado: globoclima.dedyn.io"
-            echo "Acesse: https://globoclima.dedyn.io"
-            echo "Swagger: https://globoclima.dedyn.io/swagger"
-            echo ""
-            echo "NOTA: Certifique-se de que o DNS do domínio aponta para este servidor"
-            echo "IP do servidor: $(curl -s ifconfig.me)"
+    - name: Copy SSL and config files to EC2
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        source: "docker-compose.yml,nginx/,scripts/"
+        target: "/home/${{ secrets.EC2_USER }}/"
+      
+    - name: Deploy on EC2
+      uses: appleboy/ssh-action@v0.1.10
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        envs: DOCKER_USERNAME,DOCKER_IMAGE,DOCKER_TAG
+        script: |
+          # Definir variáveis
+          export DOCKER_USERNAME=${{ secrets.DOCKER_USERNAME }}
+          export DOCKER_IMAGE=${{ env.DOCKER_IMAGE }}
+          export DOCKER_TAG=${{ env.DOCKER_TAG }}
+          
+          # Criar arquivo .env para docker-compose
+          cat > .env << EOF
+          DOCKER_USERNAME=${DOCKER_USERNAME}
+          DOCKER_IMAGE=${DOCKER_IMAGE}
+          DOCKER_TAG=${DOCKER_TAG}
+          EOF
+          
+          # Fazer login no Docker Hub
+          echo "${{ secrets.DOCKER_PASSWORD }}" | sudo docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+          
+          # Gerar certificado SSL se não existir
+          if [ ! -f ssl/server.crt ]; then
+            chmod +x scripts/generate-ssl.sh
+            ./scripts/generate-ssl.sh
+          fi
+          
+          # LIMPEZA COMPLETA - Parar e remover todos os containers relacionados
+          echo "Parando containers existentes..."
+          sudo docker stop globoclima-container globoclima-nginx globoclima-app || true
+          sudo docker rm globoclima-container globoclima-nginx globoclima-app || true
+          
+          # Parar docker-compose
+          sudo docker-compose down --remove-orphans || true
+          
+          # Verificar e matar processos usando as portas 80 e 443
+          sudo fuser -k 80/tcp || true
+          sudo fuser -k 443/tcp || true
+          
+          # Aguardar um momento para liberação das portas
+          sleep 5
+          
+          # Baixar nova imagem
+          sudo docker pull ${DOCKER_USERNAME}/${DOCKER_IMAGE}:${DOCKER_TAG}
+          sudo docker tag ${DOCKER_USERNAME}/${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_USERNAME}/${DOCKER_IMAGE}:latest
+          
+          # Iniciar containers (docker-compose lerá o arquivo .env automaticamente)
+          sudo docker-compose up -d
+          
+          # Verificar se os containers estão rodando
+          echo "Verificando status dos containers..."
+          sudo docker ps
+          
+          # Limpar imagens não utilizadas
+          sudo docker image prune -f
+          
+          # Mostrar informações de acesso
+          echo "Deploy com HTTPS concluído!"
+          echo "Domínio configurado: globoclima.dedyn.io"
+          echo "Acesse: https://globoclima.dedyn.io"
+          echo "Swagger: https://globoclima.dedyn.io/swagger"
+          echo ""
+          echo "NOTA: Certifique-se de que o DNS do domínio aponta para este servidor"
+          echo "IP do servidor: $(curl -s ifconfig.me)"
