@@ -1,6 +1,6 @@
-var builder = WebApplication.CreateBuilder(args);
+using GloboClima.Services;
 
-// Add services to the container.
+var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -9,9 +9,10 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddHealthChecks();
 
+builder.Services.AddHttpClient<ICountryService, CountryService>();
+
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
