@@ -31,3 +31,8 @@ services:
 networks:
   globoclima-network:
     driver: bridge
+
+    environment:
+      - WEATHER_API_KEY=${WEATHER_API_KEY}
+    networks:
+      - globoclima-network
