@@ -11,6 +11,25 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
       - WEATHER_API_KEY=${WEATHER_API_KEY}
+      - AWS_ACCESS_KEY_ID=dummy
+      - AWS_SECRET_ACCESS_KEY=dummy
+      - AWS_DEFAULT_REGION=us-east-1
+      - DYNAMODB_ENDPOINT=http://dynamodb-local:8000
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-here-make-it-long-and-secure}
+    depends_on:
+      - dynamodb-local
+    networks:
+      - globoclima-network
+
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    container_name: globoclima-dynamodb
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "./data"]
+    volumes:
+      - dynamodb_data:/home/dynamodblocal/data
     networks:
       - globoclima-network
 
@@ -28,6 +47,9 @@ services:
       - globoclima-app
     networks:
       - globoclima-network
+
+volumes:
+  dynamodb_data:
 
 networks:
   globoclima-network:
