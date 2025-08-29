@@ -15,7 +15,7 @@ services:
       - AWS_SECRET_ACCESS_KEY=dummy
       - AWS_DEFAULT_REGION=us-east-1
       - DYNAMODB_ENDPOINT=http://dynamodb-local:8000
-      - JWT_SECRET=${JWT_SECRET:75155378a9e3f6726b7079ac848c5b4e}
+      - JWT_SECRET=${JWT_SECRET}
     depends_on:
       dynamodb-local:
         condition: service_healthy
