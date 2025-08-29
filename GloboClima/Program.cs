@@ -15,22 +15,15 @@ if (string.IsNullOrEmpty(builder.Configuration["APIKEY"]))
 }
 
 var dynamoDbConfig = new AmazonDynamoDBConfig();
-var dynamoDbEndpoint = builder.Configuration["DYNAMODB_ENDPOINT"];
+var dynamoDbEndpoint = builder.Configuration["DYNAMODB_ENDPOINT"] ?? "http://dynamodb-local:8000";
 
-if (!string.IsNullOrEmpty(dynamoDbEndpoint))
+dynamoDbConfig.ServiceURL = dynamoDbEndpoint;
+dynamoDbConfig.UseHttp = true;
+
+builder.Services.AddSingleton<IAmazonDynamoDB>(provider =>
 {
-    dynamoDbConfig.ServiceURL = dynamoDbEndpoint;
-    dynamoDbConfig.UseHttp = true;
-    
-    builder.Services.AddSingleton<IAmazonDynamoDB>(provider =>
-    {
-        return new AmazonDynamoDBClient("dummy", "dummy", dynamoDbConfig);
-    });
-}
-else
-{
-    builder.Services.AddSingleton<IAmazonDynamoDB>(new AmazonDynamoDBClient(dynamoDbConfig));
-}
+    return new AmazonDynamoDBClient("dummy", "dummy", dynamoDbConfig);
+});
 
 builder.Services.AddSingleton<IDynamoDBContext>(provider =>
 {
@@ -62,7 +55,26 @@ builder.Services.AddAuthentication(x =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks()
+    .AddCheck("self", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy("API is running"))
+    .AddCheck("dynamodb", () =>
+    {
+        try
+        {
+            var serviceProvider = builder.Services.BuildServiceProvider();
+            var client = serviceProvider.GetService<IAmazonDynamoDB>();
+            if (client != null)
+            {
+                var response = client.ListTablesAsync().GetAwaiter().GetResult();
+                return Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy($"DynamoDB connected. Tables: {response.TableNames.Count}");
+            }
+            return Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Degraded("DynamoDB client not available");
+        }
+        catch (Exception ex)
+        {
+            return Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Unhealthy("DynamoDB connection failed", ex);
+        }
+    });
 
 builder.Services.AddHttpClient<ICountryService, CountryService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -82,7 +94,27 @@ app.UseCors(policy =>
           .AllowAnyMethod();
 });
 
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var response = new
+        {
+            status = report.Status.ToString(),
+            timestamp = DateTime.UtcNow,
+            checks = report.Entries.Select(x => new
+            {
+                name = x.Key,
+                status = x.Value.Status.ToString(),
+                description = x.Value.Description,
+                duration = x.Value.Duration.TotalMilliseconds
+            }),
+            totalDuration = report.TotalDuration.TotalMilliseconds
+        };
+        await context.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(response));
+    }
+});
 
 app.UseHttpsRedirection();
 app.UseAuthentication();
@@ -108,7 +140,7 @@ using (var scope = app.Services.CreateScope())
                     new Amazon.DynamoDBv2.Model.KeySchemaElement
                     {
                         AttributeName = "Id",
-                        KeyType = Amazon.DynamoDBv2.KeyType.HASH
+                        KeyType = KeyType.HASH
                     }
                 },
                 AttributeDefinitions = new List<Amazon.DynamoDBv2.Model.AttributeDefinition>
@@ -116,10 +148,10 @@ using (var scope = app.Services.CreateScope())
                     new Amazon.DynamoDBv2.Model.AttributeDefinition
                     {
                         AttributeName = "Id",
-                        AttributeType = Amazon.DynamoDBv2.ScalarAttributeType.S
+                        AttributeType = ScalarAttributeType.S
                     }
                 },
-                BillingMode = Amazon.DynamoDBv2.BillingMode.PAY_PER_REQUEST
+                BillingMode = BillingMode.PAY_PER_REQUEST
             });
         }
     }
