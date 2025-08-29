@@ -14,22 +14,17 @@ if (string.IsNullOrEmpty(builder.Configuration["APIKEY"]))
     builder.Configuration["APIKEY"] = Environment.GetEnvironmentVariable("WEATHER_API_KEY") ?? "";
 }
 
-var dynamoDbConfig = new AmazonDynamoDBConfig();
-var dynamoDbEndpoint = builder.Configuration["DYNAMODB_ENDPOINT"] ?? "http://dynamodb-local:8000";
+//var dynamoDbConfig = new AmazonDynamoDBConfig
+//{
+//    RegionEndpoint = Amazon.RegionEndpoint.USEast1,
+//    ServiceURL = builder.Configuration["DYNAMODB_ENDPOINT"],
+//    UseHttp = true
+//};
 
-dynamoDbConfig.ServiceURL = dynamoDbEndpoint;
-dynamoDbConfig.UseHttp = true;
+//var dynamoDbClient = new AmazonDynamoDBClient("dummy-access-key", "dummy-secret-key", dynamoDbConfig);
 
-builder.Services.AddSingleton<IAmazonDynamoDB>(provider =>
-{
-    return new AmazonDynamoDBClient("dummy", "dummy", dynamoDbConfig);
-});
-
-builder.Services.AddSingleton<IDynamoDBContext>(provider =>
-{
-    var client = provider.GetService<IAmazonDynamoDB>();
-    return new DynamoDBContext(client);
-});
+//builder.Services.AddSingleton<IAmazonDynamoDB>(dynamoDbClient);
+//builder.Services.AddSingleton<IDynamoDBContext>(new DynamoDBContext(dynamoDbClient));
 
 var jwtSecret = builder.Configuration["JWT_SECRET"] ?? "chave-de-api-se-env-vazio";
 var key = Encoding.ASCII.GetBytes(jwtSecret);
@@ -55,26 +50,7 @@ builder.Services.AddAuthentication(x =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddHealthChecks()
-    .AddCheck("self", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy("API is running"))
-    .AddCheck("dynamodb", () =>
-    {
-        try
-        {
-            var serviceProvider = builder.Services.BuildServiceProvider();
-            var client = serviceProvider.GetService<IAmazonDynamoDB>();
-            if (client != null)
-            {
-                var response = client.ListTablesAsync().GetAwaiter().GetResult();
-                return Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy($"DynamoDB connected. Tables: {response.TableNames.Count}");
-            }
-            return Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Degraded("DynamoDB client not available");
-        }
-        catch (Exception ex)
-        {
-            return Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Unhealthy("DynamoDB connection failed", ex);
-        }
-    });
+builder.Services.AddHealthChecks();
 
 builder.Services.AddHttpClient<ICountryService, CountryService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -122,44 +98,44 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-using (var scope = app.Services.CreateScope())
-{
-    var dynamoDbContext = scope.ServiceProvider.GetRequiredService<IDynamoDBContext>();
-    var client = scope.ServiceProvider.GetRequiredService<IAmazonDynamoDB>();
+//using (var scope = app.Services.CreateScope())
+//{
+//    var dynamoDbContext = scope.ServiceProvider.GetRequiredService<IDynamoDBContext>();
+//    var client = scope.ServiceProvider.GetRequiredService<IAmazonDynamoDB>();
     
-    try
-    {
-        var tableNames = await client.ListTablesAsync();
-        if (!tableNames.TableNames.Contains("Users"))
-        {
-            await client.CreateTableAsync(new Amazon.DynamoDBv2.Model.CreateTableRequest
-            {
-                TableName = "Users",
-                KeySchema = new List<Amazon.DynamoDBv2.Model.KeySchemaElement>
-                {
-                    new Amazon.DynamoDBv2.Model.KeySchemaElement
-                    {
-                        AttributeName = "Id",
-                        KeyType = KeyType.HASH
-                    }
-                },
-                AttributeDefinitions = new List<Amazon.DynamoDBv2.Model.AttributeDefinition>
-                {
-                    new Amazon.DynamoDBv2.Model.AttributeDefinition
-                    {
-                        AttributeName = "Id",
-                        AttributeType = ScalarAttributeType.S
-                    }
-                },
-                BillingMode = BillingMode.PAY_PER_REQUEST
-            });
-        }
-    }
-    catch (Exception ex)
-    {
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-        logger.LogWarning(ex, "Não foi possível criar/verificar a tabela Users no DynamoDB");
-    }
-}
+//    try
+//    {
+//        var tableNames = await client.ListTablesAsync();
+//        if (!tableNames.TableNames.Contains("Users"))
+//        {
+//            await client.CreateTableAsync(new Amazon.DynamoDBv2.Model.CreateTableRequest
+//            {
+//                TableName = "Users",
+//                KeySchema = new List<Amazon.DynamoDBv2.Model.KeySchemaElement>
+//                {
+//                    new Amazon.DynamoDBv2.Model.KeySchemaElement
+//                    {
+//                        AttributeName = "Id",
+//                        KeyType = KeyType.HASH
+//                    }
+//                },
+//                AttributeDefinitions = new List<Amazon.DynamoDBv2.Model.AttributeDefinition>
+//                {
+//                    new Amazon.DynamoDBv2.Model.AttributeDefinition
+//                    {
+//                        AttributeName = "Id",
+//                        AttributeType = ScalarAttributeType.S
+//                    }
+//                },
+//                BillingMode = BillingMode.PAY_PER_REQUEST
+//            });
+//        }
+//    }
+//    catch (Exception ex)
+//    {
+//        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+//        logger.LogWarning(ex, "Não foi possível criar/verificar a tabela Users no DynamoDB");
+//    }
+//}
 
 app.Run();

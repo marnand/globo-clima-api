@@ -35,13 +35,13 @@ public class AuthController : ControllerBase
                 return BadRequest(ModelState);
             }
 
-            var result = await _authService.LoginAsync(request);
-            if (result == null)
-            {
-                return Unauthorized(new { message = "Credenciais inválidas" });
-            }
+            //var result = await _authService.LoginAsync(request);
+            //if (result == null)
+            //{
+            //    return Unauthorized(new { message = "Credenciais inválidas" });
+            //}
 
-            return Ok(result);
+            return Ok();
         }
         catch (Exception ex)
         {
@@ -68,11 +68,11 @@ public class AuthController : ControllerBase
                 return BadRequest(ModelState);
             }
 
-            var success = await _authService.RegisterAsync(request);
-            if (!success)
-            {
-                return Conflict(new { message = "Usuário já existe" });
-            }
+            //var success = await _authService.RegisterAsync(request);
+            //if (!success)
+            //{
+            //    return Conflict(new { message = "Usuário já existe" });
+            //}
 
             return Created("", new { message = "Usuário criado com sucesso" });
         }
