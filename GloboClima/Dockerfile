@@ -27,9 +27,5 @@ RUN dotnet publish "./GloboClima.csproj" -c $BUILD_CONFIGURATION -o /app/publish
 FROM base AS final
 WORKDIR /app
 
-USER root
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
-USER $APP_UID
-
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "GloboClima.dll"]
